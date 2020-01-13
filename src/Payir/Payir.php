@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Request;
 use Larabookir\Gateway\Enum;
 use Larabookir\Gateway\PortAbstract;
 use Larabookir\Gateway\PortInterface;
+use Illuminate\Support\Facades\DB;
 
 class Payir extends PortAbstract implements PortInterface
 {
@@ -30,6 +31,27 @@ class Payir extends PortAbstract implements PortInterface
 
 
     protected $factorNumber;
+
+
+    /**
+     * Get Gateway Configurations
+     */
+    private $port_config = [];
+
+    private function get_config(){
+        $config_id = $this->config->get('gateway.default_config_id.payir');
+        $data = DB::table($this->config->get('gateway.gateway_config.payir'))->where('id', $config_id)->first();
+        $this->port_config = array(
+            "api"=>$data->api,
+            "callback-url"=>$data->callback_url
+        );
+    }
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->get_config();
+    }
 
     /**
      * {@inheritdoc}
@@ -99,7 +121,7 @@ class Payir extends PortAbstract implements PortInterface
     function getCallback()
     {
         if (!$this->callbackUrl)
-            $this->callbackUrl = $this->config->get('gateway.payir.callback-url');
+            $this->callbackUrl = $this->port_config['callback-url'];
         return urlencode($this->makeCallback($this->callbackUrl, ['transaction_id' => $this->transactionId()]));
     }
 
@@ -114,7 +136,7 @@ class Payir extends PortAbstract implements PortInterface
     {
         $this->newTransaction();
         $fields = [
-            'api'      => $this->config->get('gateway.payir.api'),
+            'api'      => $this->port_config['api'],
             'amount'   => $this->amount,
             'redirect' => $this->getCallback(),
         ];
@@ -172,7 +194,7 @@ class Payir extends PortAbstract implements PortInterface
     protected function verifyPayment()
     {
         $fields = [
-            'api'     => $this->config->get('gateway.payir.api'),
+            'api'     => $this->port_config['api'],
             'transId' => $this->refId(),
         ];
         $ch = curl_init();

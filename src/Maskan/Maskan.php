@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Input;
 use Larabookir\Gateway\Enum;
 use Larabookir\Gateway\PortAbstract;
 use Larabookir\Gateway\PortInterface;
+use Illuminate\Support\Facades\DB;
 
 class Maskan extends PortAbstract implements PortInterface
 {
@@ -25,6 +26,27 @@ class Maskan extends PortAbstract implements PortInterface
     protected $serverVerifyUrl = 'https://fcp.shaparak.ir/NvcService/Api/v2/Confirm';
     //	protected $serverVerifyUrl = 'http://79.174.161.132:8181/NvcService/Api/v2/PayRequest';
     protected $bankGateUrl;
+
+    /**
+     * Get Gateway Configurations
+     */
+    private $port_config = [];
+
+    private function get_config(){
+        $config_id = $this->config->get('gateway.default_config_id.maskan');
+        $data = DB::table($this->config->get('gateway.gateway_config.maskan'))->where('id', $config_id)->first();
+        $this->port_config = array(
+            "terminal_id"=>$data->terminal_id,
+            "USERNAME"=>$data->USERNAME,
+            "USERPASSWORD"=>$data->USERPASSWORD
+        );
+    }
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->get_config();
+    }
 
     /**
      * {@inheritdoc}
@@ -97,9 +119,9 @@ class Maskan extends PortAbstract implements PortInterface
     protected function sendPayRequest()
     {
         $this->newTransaction();
-        $terminalId   = $this->config->get("gateway.maskan.terminal_id");                    // Terminal ID
-        $userName     = $this->config->get("gateway.maskan.USERNAME");                    // Username
-        $userPassword = $this->config->get("gateway.maskan.USERPASSWORD");                    // Password
+        $terminalId   = $this->port_config["terminal_id"];                    // Terminal ID
+        $userName     = $this->port_config["USERNAME"];                    // Username
+        $userPassword = $this->port_config["USERPASSWORD"];                    // Password
         $orderId      = $this->transactionId();                        // Order ID
         $amount       = $this->getPrice();                    // Price / Rial
         $callBackUrl  = $this->getCallback();    // Callback URL
@@ -170,9 +192,9 @@ class Maskan extends PortAbstract implements PortInterface
         $orderId        = strval($Res->PaymentID);
         $fault          = strval($Res->ActionCode);
 
-        $terminalId   = $this->config->get("gateway.maskan.terminal_id");                    // Terminal ID
-        $userName     = $this->config->get("gateway.maskan.USERNAME");                    // Username
-        $userPassword = $this->config->get("gateway.maskan.USERPASSWORD");                // Password
+        $terminalId   = $this->port_config["terminal_id"];                    // Terminal ID
+        $userName     = $this->port_config["USERNAME"];                    // Username
+        $userPassword = $this->port_config["USERPASSWORD"];                // Password
 
         if ($fault == 511 || $fault == 519) {
             $this->transactionFailed();

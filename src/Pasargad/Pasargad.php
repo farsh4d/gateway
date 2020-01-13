@@ -7,6 +7,7 @@ use Larabookir\Gateway\Enum;
 use Larabookir\Gateway\Parsian\ParsianErrorException;
 use Larabookir\Gateway\PortAbstract;
 use Larabookir\Gateway\PortInterface;
+use Illuminate\Support\Facades\DB;
 
 class Pasargad extends PortAbstract implements PortInterface
 {
@@ -19,6 +20,29 @@ class Pasargad extends PortAbstract implements PortInterface
     protected $checkTransactionUrl = 'https://pep.shaparak.ir/CheckTransactionResult.aspx';
     protected $verifyUrl = 'https://pep.shaparak.ir/VerifyPayment.aspx';
     protected $refundUrl = 'https://pep.shaparak.ir/doRefund.aspx';
+
+
+    /**
+     * Get Gateway Configurations
+     */
+    private $port_config = [];
+
+    private function get_config(){
+        $config_id = $this->config->get('gateway.default_config_id.pasargad');
+        $data = DB::table($this->config->get('gateway.gateway_config.pasargad'))->where('id', $config_id)->first();
+        $this->port_config = array(
+            "terminalId"=>$data->terminalId,
+            "merchantId"=>$data->merchantId,
+            "certificate-path"=>$data->certificate_path,
+            "callback-url"=>$data->callback_url
+        );
+    }
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->get_config();
+    }
 
     /**
      * Address of gate for redirect
@@ -52,14 +76,14 @@ class Pasargad extends PortAbstract implements PortInterface
     public function redirect()
     {
 
-        $processor = new RSAProcessor($this->config->get('gateway.pasargad.certificate-path'), RSAKeyType::XMLFile);
+        $processor = new RSAProcessor($this->port_config['certificate-path'], RSAKeyType::XMLFile);
 
         $url = $this->gateUrl;
         $redirectUrl = $this->getCallback();
         $invoiceNumber = $this->transactionId();
         $amount = $this->amount;
-        $terminalCode = $this->config->get('gateway.pasargad.terminalId');
-        $merchantCode = $this->config->get('gateway.pasargad.merchantId');
+        $terminalCode = $this->port_config['terminalId'];
+        $merchantCode = $this->port_config['merchantId'];
         $timeStamp = date("Y/m/d H:i:s");
         $invoiceDate = date("Y/m/d H:i:s");
         $action = 1003;
@@ -101,7 +125,7 @@ class Pasargad extends PortAbstract implements PortInterface
     function getCallback()
     {
         if (!$this->callbackUrl)
-            $this->callbackUrl = $this->config->get('gateway.pasargad.callback-url');
+            $this->callbackUrl = $this->port_config['callback-url'];
 
         return $this->callbackUrl;
     }
@@ -155,9 +179,9 @@ class Pasargad extends PortAbstract implements PortInterface
      */
     protected function callVerifyPayment($data)
     {
-        $processor = new RSAProcessor($this->config->get('gateway.pasargad.certificate-path'), RSAKeyType::XMLFile);
-        $merchantCode = $this->config->get('gateway.pasargad.merchantId');
-        $terminalCode = $this->config->get('gateway.pasargad.terminalId');
+        $processor = new RSAProcessor($this->port_config['certificate-path'], RSAKeyType::XMLFile);
+        $merchantCode = $this->port_config['merchantId'];
+        $terminalCode = $this->port_config['terminalId'];
         $invoiceNumber = $data['invoiceNumber'];
         $invoiceDate = $data['invoiceDate'];
         $timeStamp = date("Y/m/d H:i:s");

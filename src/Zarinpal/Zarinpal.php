@@ -8,6 +8,7 @@ use Larabookir\Gateway\Enum;
 use SoapClient;
 use Larabookir\Gateway\PortAbstract;
 use Larabookir\Gateway\PortInterface;
+use Illuminate\Support\Facades\DB;
 
 class Zarinpal extends PortAbstract implements PortInterface
 {
@@ -81,6 +82,31 @@ class Zarinpal extends PortAbstract implements PortInterface
 	 */
 	protected $zarinGateUrl = 'https://www.zarinpal.com/pg/StartPay/$Authority/ZarinGate';
 
+    /**
+     * Get Gateway Configurations
+     */
+    private $port_config = [];
+
+    private function get_config(){
+        $config_id = $this->config->get('gateway.default_config_id.zarinpal');
+        $data = DB::table($this->config->get('gateway.gateway_config.zarinpal'))->where('id', $config_id)->first();
+        $this->port_config = array(
+            "merchant-id"=>$data->merchant_id,
+            "type"=>$data->type,
+            "server"=>$data->server,
+            "email"=>$data->email,
+            "mobile"=>$data->mobile,
+            "description"=>$data->description,
+            "callback-url"=>$data->callback_url
+        );
+    }
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->get_config();
+    }
+
 	public function boot()
 	{
 		$this->setServer();
@@ -111,7 +137,7 @@ class Zarinpal extends PortAbstract implements PortInterface
 	 */
 	public function redirect()
 	{
-		switch ($this->config->get('gateway.zarinpal.type')) {
+		switch ($this->port_config['type']) {
 			case 'zarin-gate':
 				return \Redirect::to(str_replace('$Authority', $this->refId, $this->zarinGateUrl));
 				break;
@@ -153,7 +179,7 @@ class Zarinpal extends PortAbstract implements PortInterface
 	function getCallback()
 	{
 		if (!$this->callbackUrl)
-			$this->callbackUrl = $this->config->get('gateway.zarinpal.callback-url');
+			$this->callbackUrl = $this->port_config['callback-url'];
 
 		return $this->makeCallback($this->callbackUrl, ['transaction_id' => $this->transactionId()]);
 	}
@@ -170,12 +196,12 @@ class Zarinpal extends PortAbstract implements PortInterface
 		$this->newTransaction();
 
 		$fields = array(
-			'MerchantID' => $this->config->get('gateway.zarinpal.merchant-id'),
+			'MerchantID' => $this->port_config['merchant-id'],
 			'Amount' => $this->amount,
 			'CallbackURL' => $this->getCallback(),
-			'Description' => $this->description ? $this->description : $this->config->get('gateway.zarinpal.description', ''),
-			'Email' => $this->email ? $this->email :$this->config->get('gateway.zarinpal.email', ''),
-			'Mobile' => $this->mobileNumber ? $this->mobileNumber : $this->config->get('gateway.zarinpal.mobile', ''),
+			'Description' => $this->description ? $this->description : $this->port_config['description'],
+			'Email' => $this->email ? $this->email :$this->port_config['email'],
+			'Mobile' => $this->mobileNumber ? $this->mobileNumber : $this->port_config['mobile'],
 		);
 
 		try {
@@ -230,7 +256,7 @@ class Zarinpal extends PortAbstract implements PortInterface
 	{
 
 		$fields = array(
-			'MerchantID' => $this->config->get('gateway.zarinpal.merchant-id'),
+			'MerchantID' => $this->port_config['gmerchant-id'],
 			'Authority' => $this->refId,
 			'Amount' => $this->amount,
 		);
@@ -264,7 +290,7 @@ class Zarinpal extends PortAbstract implements PortInterface
 	 */
 	protected function setServer()
 	{
-		$server = $this->config->get('gateway.zarinpal.server', 'germany');
+		$server = $this->port_config['server'];
 		switch ($server) {
 			case 'iran':
 				$this->serverUrl = $this->iranServer;

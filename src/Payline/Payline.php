@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Request;
 use Larabookir\Gateway\Enum;
 use Larabookir\Gateway\PortAbstract;
 use Larabookir\Gateway\PortInterface;
+use Illuminate\Support\Facades\DB;
 
 class Payline extends PortAbstract implements PortInterface
 {
@@ -30,7 +31,28 @@ class Payline extends PortAbstract implements PortInterface
 	 */
 	protected $gateUrl = 'https://pay.ir/payment/gateway/';
 
-	/**
+
+    /**
+     * Get Gateway Configurations
+     */
+    private $port_config = [];
+
+    private function get_config(){
+        $config_id = $this->config->get('gateway.default_config_id.payline');
+        $data = DB::table($this->config->get('gateway.gateway_config.payline'))->where('id', $config_id)->first();
+        $this->port_config = array(
+            "api"=>$data->api,
+            "callback-url"=>$data->callback_url
+        );
+    }
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->get_config();
+    }
+
+    /**
 	 * {@inheritdoc}
 	 */
 	public function set($amount)
@@ -88,7 +110,7 @@ class Payline extends PortAbstract implements PortInterface
 	function getCallback()
 	{
 		if (!$this->callbackUrl)
-			$this->callbackUrl = $this->config->get('gateway.payline.callback-url');
+			$this->callbackUrl = $this->port_config['callback-url'];
 
 		return urlencode($this->makeCallback($this->callbackUrl, ['transaction_id' => $this->transactionId()]));
 	}
@@ -105,7 +127,7 @@ class Payline extends PortAbstract implements PortInterface
 		$this->newTransaction();
 
 		$fields = array(
-			'api' => $this->config->get('gateway.payline.api'),
+			'api' => $this->port_config['api'],
 			'amount' => $this->amount,
 			'redirect' => $this->getCallback(),
 		);
@@ -164,7 +186,7 @@ class Payline extends PortAbstract implements PortInterface
 	protected function verifyPayment()
 	{
 		$fields = array(
-			'api' => $this->config->get('gateway.payline.api'),
+			'api' => $this->port_config['api'],
 			'id_get' => $this->refId(),
 			'trans_id' => $this->trackingCode()
 		);

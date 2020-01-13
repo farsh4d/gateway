@@ -8,6 +8,7 @@ use Larabookir\Gateway\Enum;
 use SoapClient;
 use Larabookir\Gateway\PortAbstract;
 use Larabookir\Gateway\PortInterface;
+use Illuminate\Support\Facades\DB;
 
 class Mellat extends PortAbstract implements PortInterface
 {
@@ -18,7 +19,30 @@ class Mellat extends PortAbstract implements PortInterface
 	 */
 	protected $serverUrl = 'https://bpm.shaparak.ir/pgwchannel/services/pgw?wsdl';
 
-	/**
+
+    /**
+     * Get Gateway Configurations
+     */
+    private $port_config = [];
+
+    private function get_config(){
+        $config_id = $this->config->get('gateway.default_config_id.mellat');
+        $data = DB::table($this->config->get('gateway.gateway_config.mellat'))->where('id', $config_id)->first();
+        $this->port_config = array(
+            "username"=>$data->username,
+            "password"=>$data->password,
+            "terminalId"=>$data->terminalId,
+            "callback-url"=>$data->callback_url
+        );
+    }
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->get_config();
+    }
+
+    /**
 	 * {@inheritdoc}
 	 */
 	public function set($amount)
@@ -79,7 +103,7 @@ class Mellat extends PortAbstract implements PortInterface
 	function getCallback()
 	{
 		if (!$this->callbackUrl)
-			$this->callbackUrl = $this->config->get('gateway.mellat.callback-url');
+			$this->callbackUrl = $this->port_config['callback-url'];
 
 		return $this->makeCallback($this->callbackUrl, ['transaction_id' => $this->transactionId()]);
 	}
@@ -98,9 +122,9 @@ class Mellat extends PortAbstract implements PortInterface
 		$this->newTransaction();
 
 		$fields = array(
-			'terminalId' => $this->config->get('gateway.mellat.terminalId'),
-			'userName' => $this->config->get('gateway.mellat.username'),
-			'userPassword' => $this->config->get('gateway.mellat.password'),
+			'terminalId' => $this->port_config['terminalId'],
+			'userName' => $this->port_config['username'],
+			'userPassword' => $this->port_config['password'],
 			'orderId' => $this->transactionId(),
 			'amount' => $this->amount,
 			'localDate' => $dateTime->format('Ymd'),
@@ -165,9 +189,9 @@ class Mellat extends PortAbstract implements PortInterface
 	protected function verifyPayment()
 	{
 		$fields = array(
-			'terminalId' => $this->config->get('gateway.mellat.terminalId'),
-			'userName' => $this->config->get('gateway.mellat.username'),
-			'userPassword' => $this->config->get('gateway.mellat.password'),
+			'terminalId' => $this->port_config['terminalId'],
+			'userName' => $this->port_config['username'],
+			'userPassword' => $this->port_config['password'],
 			'orderId' => $this->transactionId(),
 			'saleOrderId' => $this->transactionId(),
 			'saleReferenceId' => $this->trackingCode()
@@ -203,9 +227,9 @@ class Mellat extends PortAbstract implements PortInterface
 	protected function settleRequest()
 	{
 		$fields = array(
-			'terminalId' => $this->config->get('gateway.mellat.terminalId'),
-			'userName' => $this->config->get('gateway.mellat.username'),
-			'userPassword' => $this->config->get('gateway.mellat.password'),
+			'terminalId' => $this->port_config['terminalId'],
+			'userName' => $this->port_config['username'],
+			'userPassword' => $this->port_config['password'],
 			'orderId' => $this->transactionId(),
 			'saleOrderId' => $this->transactionId(),
 			'saleReferenceId' => $this->trackingCode

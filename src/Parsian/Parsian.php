@@ -7,6 +7,7 @@ use Illuminate\Validation\Rules\In;
 use SoapClient;
 use Larabookir\Gateway\PortAbstract;
 use Larabookir\Gateway\PortInterface;
+use Illuminate\Support\Facades\DB;
 
 class Parsian extends PortAbstract implements PortInterface
 {
@@ -18,6 +19,26 @@ class Parsian extends PortAbstract implements PortInterface
     protected $serverUrl        = 'https://pec.shaparak.ir/NewIPGServices/Sale/SaleService.asmx?wsdl';
     protected $serverUrlConfirm = "https://pec.shaparak.ir/NewIPGServices/Confirm/ConfirmService.asmx?WSDL";
 
+
+    /**
+     * Get Gateway Configurations
+     */
+    private $port_config = [];
+
+    private function get_config(){
+        $config_id = $this->config->get('gateway.default_config_id.parsian');
+        $data = DB::table($this->config->get('gateway.gateway_config.parsian'))->where('id', $config_id)->first();
+        $this->port_config = array(
+            "pin"=>$data->pin,
+            "callback-url"=>$data->callback_url
+        );
+    }
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->get_config();
+    }
 
     /**
 	 * Address of gate for redirect
@@ -84,7 +105,7 @@ class Parsian extends PortAbstract implements PortInterface
 	function getCallback()
 	{
 		if (!$this->callbackUrl)
-			$this->callbackUrl = $this->config->get('gateway.parsian.callback-url');
+			$this->callbackUrl = $this->port_config['callback-url'];
 
 		return $this->makeCallback($this->callbackUrl, ['transaction_id' => $this->transactionId()]);
 	}
@@ -102,7 +123,7 @@ class Parsian extends PortAbstract implements PortInterface
 		$this->newTransaction();
 
 		$params = array(
-            'LoginAccount'   => $this->config->get('gateway.parsian.pin'),
+            'LoginAccount'   => $this->port_config['pin'],
             'Amount'         => $this->amount . "",
             'OrderId'        => $this->transactionId(),
             'CallBackUrl'    => $this->getCallback(),
@@ -172,7 +193,7 @@ class Parsian extends PortAbstract implements PortInterface
 			throw new ParsianErrorException('تراکنشی یافت نشد', -1);
 
 		$params = array(
-            'LoginAccount' => $this->config->get('gateway.parsian.pin'),
+            'LoginAccount' => $this->port_config['pin'],
             'Token'        => $authority,
 		);
 

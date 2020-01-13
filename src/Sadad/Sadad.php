@@ -5,6 +5,7 @@ namespace Larabookir\Gateway\Sadad;
 use SoapClient;
 use Larabookir\Gateway\PortAbstract;
 use Larabookir\Gateway\PortInterface;
+use Illuminate\Support\Facades\DB;
 
 class Sadad extends PortAbstract implements PortInterface
 {
@@ -21,6 +22,28 @@ class Sadad extends PortAbstract implements PortInterface
 	 * @var string
 	 */
 	private $form = '';
+
+    /**
+     * Get Gateway Configurations
+     */
+    private $port_config = [];
+
+    private function get_config(){
+        $config_id = $this->config->get('gateway.default_config_id.sadad');
+        $data = DB::table($this->config->get('gateway.gateway_config.sadad'))->where('id', $config_id)->first();
+        $this->port_config = array(
+            "merchantId"=>$data->merchantId,
+            "transactionKey"=>$data->transactionKey,
+            "terminalId"=>$data->terminalId,
+            "callback-url"=>$data->callback_url
+        );
+    }
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->get_config();
+    }
 
 
 	/**
@@ -82,7 +105,7 @@ class Sadad extends PortAbstract implements PortInterface
 	function getCallback()
 	{
 		if (!$this->callbackUrl)
-			$this->callbackUrl = $this->config->get('gateway.sadad.callback-url');
+			$this->callbackUrl = $this->port_config['callback-url'];
 
 		return $this->makeCallback($this->callbackUrl, ['transaction_id' => $this->transactionId()]);
 	}
@@ -104,11 +127,11 @@ class Sadad extends PortAbstract implements PortInterface
 			$soap = new SoapClient($this->serverUrl);
 
 			$response = $soap->PaymentUtility(
-				$this->config->get('gateway.sadad.merchant'),
+				$this->port_config['merchant'],
 				$this->amount,
 				$this->transactionId(),
-				$this->config->get('gateway.sadad.transactionKey'),
-				$this->config->get('gateway.sadad.terminalId'),
+				$this->port_config['transactionKey'],
+				$this->port_config['terminalId'],
 				$this->getCallback()
 			);
 
@@ -142,9 +165,9 @@ class Sadad extends PortAbstract implements PortInterface
 
 			$result = $soap->CheckRequestStatusResult(
 				$this->transactionId(),
-				$this->config->get('gateway.sadad.merchant'),
-				$this->config->get('gateway.sadad.terminalId'),
-				$this->config->get('gateway.sadad.transactionKey'),
+				$this->port_config['merchant'],
+				$this->port_config['terminalId'],
+				$this->port_config['transactionKey'],
 				$this->refId(),
 				$this->amount
 			);

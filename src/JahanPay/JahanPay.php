@@ -7,6 +7,7 @@ use Larabookir\Gateway\Enum;
 use SoapClient;
 use Larabookir\Gateway\PortAbstract;
 use Larabookir\Gateway\PortInterface;
+use Illuminate\Support\Facades\DB;
 
 class JahanPay extends PortAbstract implements PortInterface
 {
@@ -23,6 +24,26 @@ class JahanPay extends PortAbstract implements PortInterface
      * @var string
      */
     protected $gateUrl = 'http://www.jahanpay.com/pay_invoice/';
+
+    /**
+     * Get Gateway Configurations
+     */
+    private $port_config = [];
+
+    private function get_config(){
+        $config_id = $this->config->get('gateway.default_config_id.jahanpay');
+        $data = DB::table($this->config->get('gateway.gateway_config.jahanpay'))->where('id', $config_id)->first();
+        $this->port_config = array(
+            "api"=>$data->api,
+            "callback-url"=>$data->callback_url
+        );
+    }
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->get_config();
+    }
 
     /**
      * {@inheritdoc}
@@ -82,7 +103,7 @@ class JahanPay extends PortAbstract implements PortInterface
     function getCallback()
     {
         if (!$this->callbackUrl)
-            $this->callbackUrl = $this->config->get('gateway.jahanpay.callback-url');
+            $this->callbackUrl = $this->port_config['callback-url'];
 
         return $this->makeCallback($this->callbackUrl, ['transaction_id' => $this->transactionId()]);
     }
@@ -101,7 +122,7 @@ class JahanPay extends PortAbstract implements PortInterface
         try {
             $soap = new SoapClient($this->serverUrl);
             $response = $soap->requestpayment(
-                $this->config->get('gateway.jahanpay.api'),
+                $this->port_config['api'],
                 $this->amount,
                 $this->getCallback(),
                 $this->transactionId(),
@@ -157,7 +178,7 @@ class JahanPay extends PortAbstract implements PortInterface
         try {
             $soap = new SoapClient($this->serverUrl);
             $response = $soap->verification(
-                $this->config->get('gateway.jahanpay.api'),
+                $this->port_config['api'],
                 $this->amount,
                 $this->refId
             );

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Request;
 use SoapClient;
 use Larabookir\Gateway\PortAbstract;
 use Larabookir\Gateway\PortInterface;
+use Illuminate\Support\Facades\DB;
 
 class Saman extends PortAbstract implements PortInterface
 {
@@ -27,6 +28,27 @@ class Saman extends PortAbstract implements PortInterface
     protected $serverVerifyUrl = "https://sep.shaparak.ir/payments/referencepayment.asmx?WSDL";
 
     protected $gateUrl = "https://sep.shaparak.ir/Payment.aspx";
+
+    /**
+     * Get Gateway Configurations
+     */
+    private $port_config = [];
+
+    private function get_config(){
+        $config_id = $this->config->get('gateway.default_config_id.saman');
+        $data = DB::table($this->config->get('gateway.gateway_config.saman'))->where('id', $config_id)->first();
+        $this->port_config = array(
+            "merchant"=>$data->merchantId,
+            "password"=>$data->password,
+            "callback-url"=>$data->callback_url
+        );
+    }
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->get_config();
+    }
 
     /**
      * {@inheritdoc}
@@ -68,7 +90,7 @@ class Saman extends PortAbstract implements PortInterface
     {
         $main_data = [
             'amount'        => $this->amount,
-            'merchant'      => $this->config->get('gateway.saman.merchant'),
+            'merchant'      => $this->port_config['merchant'],
             'resNum'        => $this->transactionId(),
             'callBackUrl'   => $this->getCallback()
         ];
@@ -108,7 +130,7 @@ class Saman extends PortAbstract implements PortInterface
     function getCallback()
     {
         if (!$this->callbackUrl)
-            $this->callbackUrl = $this->config->get('gateway.saman.callback-url');
+            $this->callbackUrl = $this->port_config['callback-url'];
 
         $url = $this->makeCallback($this->callbackUrl, ['transaction_id' => $this->transactionId()]);
 
@@ -159,9 +181,9 @@ class Saman extends PortAbstract implements PortInterface
     protected function verifyPayment()
     {
         $fields = array(
-            "merchantID" => $this->config->get('gateway.saman.merchant'),
+            "merchantID" => $this->port_config['merchant'],
             "RefNum" => $this->refId,
-            "password" => $this->config->get('gateway.saman.password'),
+            "password" => $this->port_config['password'],
         );
 
         try {
